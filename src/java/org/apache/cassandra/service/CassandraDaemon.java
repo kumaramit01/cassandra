@@ -60,6 +60,7 @@ import org.apache.cassandra.utils.CLibrary;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Mx4jTool;
 import org.apache.cassandra.utils.Pair;
+import org.apache.cassandra.utils.SigarLibrary;
 
 /**
  * The <code>CassandraDaemon</code> is an abstraction for a Cassandra daemon
@@ -97,7 +98,7 @@ public class CassandraDaemon
      */
     protected void setup()
     {
-        try 
+        try
         {
             logger.info("Hostname: {}", InetAddress.getLocalHost().getHostName());
         }
@@ -192,6 +193,11 @@ public class CassandraDaemon
         Iterable<String> dirs = Iterables.concat(Arrays.asList(DatabaseDescriptor.getAllDataFileLocations()),
                                                  Arrays.asList(DatabaseDescriptor.getCommitLogLocation(),
                                                                DatabaseDescriptor.getSavedCachesLocation()));
+        // Sigar library
+        SigarLibrary sigarLibrary = new SigarLibrary();
+        // call init to create load the sigar native libraries
+        sigarLibrary.init();
+
         for (String dataDir : dirs)
         {
             logger.debug("Checking directory {}", dataDir);
@@ -214,6 +220,12 @@ public class CassandraDaemon
                 // if permissions aren't sufficient, stop cassandra.
                 System.exit(3);
             }
+
+            if (sigarLibrary.isFileSystemTypeRemote(dataDir))
+            {
+                logger.warn("Director {} is on a remote file system this would lead to degraded performance", dataDir);
+            }
+
         }
 
         if (CacheService.instance == null) // should never happen
@@ -453,7 +465,7 @@ public class CassandraDaemon
                 logger.error("error registering MBean {}", MBEAN_NAME, e);
                 //Allow the server to start even if the bean can't be registered
             }
-            
+
             setup();
 
             if (pidFile != null)
@@ -545,15 +557,15 @@ public class CassandraDaemon
     {
         instance.activate();
     }
-    
+
     static class NativeAccess implements NativeAccessMBean
     {
         public boolean isAvailable()
         {
             return CLibrary.jnaAvailable();
         }
-        
-        public boolean isMemoryLockable() 
+
+        public boolean isMemoryLockable()
         {
             return CLibrary.jnaMemoryLockable();
         }
