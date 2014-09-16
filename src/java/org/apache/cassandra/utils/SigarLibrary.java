@@ -17,13 +17,9 @@
  */
 package org.apache.cassandra.utils;
 
+import org.hyperic.sigar.*;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
-
-import org.hyperic.sigar.FileSystem;
-import org.hyperic.sigar.FileSystemMap;
-import org.hyperic.sigar.Sigar;
-import org.hyperic.sigar.SigarException;
 
 
 public class SigarLibrary
@@ -33,10 +29,11 @@ public class SigarLibrary
     private Sigar sigar;
     private FileSystemMap mounts = null;
     private boolean sigarInitialized = Boolean.FALSE;
+    private long EXPECTED_MIN_FILE_COUNT = 10000;
 
     public SigarLibrary()
     {
-        System.setProperty("org.hyperic.sigar.path", "-");
+        //System.setProperty("org.hyperic.sigar.path", "-");
     }
 
     public boolean init()
@@ -44,7 +41,6 @@ public class SigarLibrary
         logger.info("Initializing SIGAR library");
         try
            {
-                System.loadLibrary("sigar");
                 sigar = new Sigar();
                 mounts = sigar.getFileSystemMap();
                 sigarInitialized = true;
@@ -57,14 +53,10 @@ public class SigarLibrary
            {
                 logger.info("Could not initialize SIGAR library {} ", linkError.getMessage());
            }
-        if (sigar != null)
-        {
-            logger.info("SIGAR library loaded from: " + sigar.getNativeLibrary().getAbsolutePath());
-        }
         return sigarInitialized;
     }
 
-    public boolean isFileSystemTypeRemote(final String directory)
+    public boolean isFileSystemTypeRemote(final String directory) throws SigarException
     {
         if (sigarInitialized)
         {
@@ -74,7 +66,73 @@ public class SigarLibrary
         else
         {
             logger.info("SIGAR not initialized");
+            throw new SigarException("SIGAR not initialized");
+        }
+    }
+
+    public boolean hasAcceptablediskLatency(String directory) throws SigarException
+    {
+        if (sigarInitialized)
+        {
+            FileSystem mntFileSystem = mounts.getMountPoint(directory);
+            FileSystemUsage  fileSystemUsage= sigar.getFileSystemUsage(mntFileSystem.getDirName());
+            double diskQueueLen = fileSystemUsage.getDiskQueue();
+            logger.info("Disk Service time {} ", fileSystemUsage.getDiskServiceTime());
+            logger.info("Disk Read bytes {} ", fileSystemUsage.getDiskReadBytes());
+            logger.info("Disk Write bytes {} ", fileSystemUsage.getDiskWriteBytes());
+            logger.info("Disk Writes {} ", fileSystemUsage.getDiskWrites());
+            logger.info("Disk Reads {} ", fileSystemUsage.getDiskReads());
+            logger.info("Disk queue size {} ", diskQueueLen );
             return false;
+        }
+        else
+        {
+            logger.info("SIGAR not initialized");
+            throw new SigarException("SIGAR not initialized");
+        }
+
+    }
+
+    public boolean hasAcceptableMaxFiles() throws SigarException
+    {
+        if (sigarInitialized)
+        {
+            long  fileMax= sigar.getResourceLimit().getOpenFilesMax();
+            if (fileMax >= EXPECTED_MIN_FILE_COUNT)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            logger.info("SIGAR not initialized");
+            throw new SigarException("SIGAR not initialized");
+        }
+    }
+
+    public boolean isSwapEnabled() throws SigarException
+    {
+        if (sigarInitialized)
+        {
+            Swap swap =sigar.getSwap();
+            long swapSize= swap.getTotal();
+            if(swapSize>0l)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            logger.info("SIGAR not initialized");
+            throw new SigarException("SIGAR not initialized");
         }
     }
 }

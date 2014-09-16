@@ -33,6 +33,7 @@ import javax.management.StandardMBean;
 
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.hyperic.sigar.SigarException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -222,10 +223,10 @@ public class CassandraDaemon
                 System.exit(3);
             }
 
-            if (sigarLibrary.isFileSystemTypeRemote(dataDir))
-            {
-                logger.warn("Director {} is on a remote file system this would lead to degraded performance", dataDir);
-            }
+            //if (sigarLibrary.isFileSystemTypeRemote(dataDir))
+            //{
+            //    logger.warn("Director {} is on a remote file system this would lead to degraded performance", dataDir);
+            //}
 
         }
 
