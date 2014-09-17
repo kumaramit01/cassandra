@@ -29,33 +29,54 @@ public class SigarLibrary
     private Sigar sigar;
     private FileSystemMap mounts = null;
     private boolean sigarInitialized = Boolean.FALSE;
-    private long EXPECTED_MIN_FILE_COUNT = 10000;
+    private long INFINITY = -1;
+    private long EXPECTED_MIN_NOFILE = 10000l; // number of files that can be opened
+    /* We haven't found a way to get the MEMLOCK information from SIGAR
+    private long EXPECTED_MEMLOCK = INFINITY;  // amount of memory that can be locked
+    */
+    private long EXPECTED_NPROC = 32768l; // number of processes
+    private long EXPECTED_AS = INFINITY; // address space
+
+    private enum Result
+    {
+        UNK, TRUE, FALSE
+    }
 
     public SigarLibrary()
     {
-        //System.setProperty("org.hyperic.sigar.path", "-");
     }
 
+    // don't throw exception here, because this is not an error condition
+    // we will just not use SIGAR if it is not found
     public boolean init()
     {
         logger.info("Initializing SIGAR library");
         try
-           {
-                sigar = new Sigar();
-                mounts = sigar.getFileSystemMap();
-                sigarInitialized = true;
-           }
-            catch (SigarException e)
-           {
-                logger.info("Could not initialize SIGAR library {} ", e.getMessage());
-           }
-           catch (UnsatisfiedLinkError linkError)
-           {
-                logger.info("Could not initialize SIGAR library {} ", linkError.getMessage());
-           }
+        {
+            sigar = new Sigar();
+            mounts = sigar.getFileSystemMap();
+            sigarInitialized = true;
+        }
+        catch (SigarException e)
+        {
+            logger.info("Could not initialize SIGAR library {} ", e.getMessage());
+        }
+        catch (UnsatisfiedLinkError linkError)
+        {
+            logger.info("Could not initialize SIGAR library {} ", linkError.getMessage());
+        }
         return sigarInitialized;
     }
 
+    /**
+     *
+     * @return true or false indicating if sigar was successfully initialized
+     */
+    public boolean isSigarInitialized() {
+        return sigarInitialized;
+    }
+
+    /*
     public boolean isFileSystemTypeRemote(final String directory) throws SigarException
     {
         if (sigarInitialized)
@@ -92,47 +113,119 @@ public class SigarLibrary
         }
 
     }
+       */
 
-    public boolean hasAcceptableMaxFiles() throws SigarException
+    private Result hasAcceptableNProc()
     {
-        if (sigarInitialized)
+        try
         {
-            long  fileMax= sigar.getResourceLimit().getOpenFilesMax();
-            if (fileMax >= EXPECTED_MIN_FILE_COUNT)
+            long  fileMax= sigar.getResourceLimit().getProcessesMax();
+            if (fileMax >= EXPECTED_NPROC || fileMax == INFINITY)
             {
-                return true;
+                return Result.TRUE;
             }
             else
             {
-                return false;
+                return Result.FALSE;
             }
         }
-        else
+        catch (SigarException sigarException)
         {
-            logger.info("SIGAR not initialized");
-            throw new SigarException("SIGAR not initialized");
+            return Result.UNK;
         }
+
     }
 
-    public boolean isSwapEnabled() throws SigarException
+    private Result hasAcceptableNoFile()
     {
-        if (sigarInitialized)
+        try
+        {
+            long  fileMax= sigar.getResourceLimit().getOpenFilesMax();
+            if (fileMax >= EXPECTED_MIN_NOFILE || fileMax == INFINITY)
+            {
+                return Result.TRUE;
+            }
+            else
+            {
+                return Result.FALSE;
+            }
+        }
+        catch (SigarException sigarException)
+        {
+            return Result.UNK;
+        }
+
+    }
+
+    private Result hasAcceptableAs()
+    {
+        try
+        {
+            long  fileMax= sigar.getResourceLimit().getVirtualMemoryMax();
+            if (fileMax == EXPECTED_AS)
+            {
+                return Result.TRUE;
+            }
+            else
+            {
+                return Result.FALSE;
+            }
+        }
+        catch (SigarException sigarException)
+        {
+            return Result.UNK;
+        }
+
+    }
+
+    private Result isSwapDisabled()
+    {
+        try
         {
             Swap swap =sigar.getSwap();
             long swapSize= swap.getTotal();
             if(swapSize>0l)
             {
-                return true;
+                return Result.TRUE;
             }
             else
             {
-                return false;
+                return Result.FALSE;
             }
+        }
+        catch (SigarException sigarException)
+        {
+            return Result.UNK;
+        }
+    }
+
+    /**
+     * Logs a warning if are certain that ulimit values are not
+     * as suggested in the documentation or if swap is enabled.
+     */
+    public void warnIfRunningInDegradedMode(){
+        if (sigarInitialized)
+        {
+            Result swapDisabled = isSwapDisabled();
+            Result acceptableAs = hasAcceptableAs();
+            Result acceptableNoFile = hasAcceptableNoFile();
+            Result acceptableNProc = hasAcceptableNProc();
+            if(
+                (   swapDisabled == Result.FALSE ||
+                    acceptableAs == Result.FALSE ||
+                    acceptableNoFile == Result.FALSE ||
+                    acceptableNProc == Result.FALSE
+                )
+              )
+                {
+                    logger.warn("Cassandra server running in degraded mode. Is swap disabled: {}  Address space adequate ? {} " +
+                        " nofile adequate ? : {} nproc adequate ? : {} ",swapDisabled, acceptableAs,
+                        acceptableNoFile, acceptableNProc );
+                }
         }
         else
         {
-            logger.info("SIGAR not initialized");
-            throw new SigarException("SIGAR not initialized");
+            logger.info("Sigar could not be initialized, test for checking degraded mode omitted.");
         }
     }
 }

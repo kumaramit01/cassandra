@@ -198,8 +198,14 @@ public class CassandraDaemon
         // Sigar library
         SigarLibrary sigarLibrary = new SigarLibrary();
         // call init to create load the sigar native libraries
-        sigarLibrary.init();
-
+        if(sigarLibrary.init())
+        {
+            sigarLibrary.warnIfRunningInDegradedMode();
+        }
+        else
+        {
+            logger.info("Sigar could not be initialized");
+        }
         for (String dataDir : dirs)
         {
             logger.debug("Checking directory {}", dataDir);
@@ -223,10 +229,6 @@ public class CassandraDaemon
                 System.exit(3);
             }
 
-            //if (sigarLibrary.isFileSystemTypeRemote(dataDir))
-            //{
-            //    logger.warn("Director {} is on a remote file system this would lead to degraded performance", dataDir);
-            //}
 
         }
 
