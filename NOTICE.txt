@@ -61,6 +61,7 @@ Copyright 2010, Cedric Beust cedric@beust.com
 HLL++ support provided by stream-lib
 (https://github.com/addthis/stream-lib)
 
+<<<<<<< HEAD
 Javassist
 (http://www.csg.ci.i.u-tokyo.ac.jp/~chiba/javassist/)
 
