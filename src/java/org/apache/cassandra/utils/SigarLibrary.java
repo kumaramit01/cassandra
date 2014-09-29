@@ -178,19 +178,19 @@ public class SigarLibrary
 
     }
 
-    private Result isSwapDisabled()
+    private Result isSwapEnabled()
     {
         try
         {
             Swap swap =sigar.getSwap();
             long swapSize= swap.getTotal();
-            if(swapSize>0l)
+            if (swapSize>0l)
             {
-                return Result.TRUE;
+                return Result.FALSE;
             }
             else
             {
-                return Result.FALSE;
+                return Result.TRUE;
             }
         }
         catch (SigarException sigarException)
@@ -206,20 +206,20 @@ public class SigarLibrary
     public void warnIfRunningInDegradedMode(){
         if (sigarInitialized)
         {
-            Result swapDisabled = isSwapDisabled();
+            Result swapEnabled = isSwapEnabled();
             Result acceptableAs = hasAcceptableAs();
             Result acceptableNoFile = hasAcceptableNoFile();
             Result acceptableNProc = hasAcceptableNProc();
-            if(
-                (   swapDisabled == Result.FALSE ||
-                    acceptableAs == Result.FALSE ||
-                    acceptableNoFile == Result.FALSE ||
-                    acceptableNProc == Result.FALSE
-                )
+            if (
+                   (   swapEnabled == Result.TRUE ||
+                       acceptableAs == Result.FALSE ||
+                       acceptableNoFile == Result.FALSE ||
+                       acceptableNProc == Result.FALSE
+                   )
               )
                 {
-                    logger.warn("Cassandra server running in degraded mode. Is swap disabled: {}  Address space adequate ? {} " +
-                        " nofile adequate ? : {} nproc adequate ? : {} ",swapDisabled, acceptableAs,
+                    logger.warn("Cassandra server running in degraded mode. Is swap disabled ? : {}  Address space adequate ? : {} " +
+                        " nofile adequate ? : {} nproc adequate ? : {} ",swapEnabled, acceptableAs,
                         acceptableNoFile, acceptableNProc );
                 }
         }
