@@ -222,6 +222,11 @@ public class SigarLibrary
                         " nofile adequate ? : {} nproc adequate ? : {} ",swapEnabled, acceptableAs,
                         acceptableNoFile, acceptableNProc );
                 }
+            else
+                {
+                    logger.info("Swap, Address Space, number of open files per process and the number of processes per user appear " +
+                            "to confirm for good performance.");
+                }
         }
         else
         {
